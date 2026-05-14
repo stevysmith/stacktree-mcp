@@ -1,0 +1,16 @@
+# Build output — regenerated on publish via tsc
+dist/
+
+# Dependencies
+node_modules/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.log
+
+# Local env (none expected — server has no secrets, but be safe)
+.env
+.env.*

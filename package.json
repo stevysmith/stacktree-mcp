@@ -1,0 +1,49 @@
+{
+  "name": "stacktree-mcp",
+  "version": "0.2.1",
+  "mcpName": "ee.stacktr/publish",
+  "description": "MCP server for stacktr.ee — publish HTML artifacts from agents.",
+  "license": "MIT",
+  "type": "module",
+  "homepage": "https://stacktr.ee",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stevysmith/stacktree-mcp.git"
+  },
+  "bugs": "https://github.com/stevysmith/stacktree-mcp/issues",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "cursor",
+    "stacktree",
+    "html",
+    "hosting",
+    "agent",
+    "artifact"
+  ],
+  "bin": {
+    "stacktree-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p . --noEmit",
+    "prepublishOnly": "tsc -p ."
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.6.0"
+  }
+}
