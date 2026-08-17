@@ -1,6 +1,6 @@
 {
   "name": "stacktree-mcp",
-  "version": "0.2.1",
+  "version": "0.5.0",
   "mcpName": "ee.stacktr/publish",
   "description": "MCP server for stacktr.ee — publish HTML artifacts from agents.",
   "license": "MIT",
