@@ -2,6 +2,18 @@
 
 MCP server for [stacktr.ee](https://stacktr.ee). Publish HTML artifacts from any MCP client (Claude Desktop, Claude Code, Cursor, Continue, etc).
 
+## Set up with an agent
+
+If you have a coding agent open, hand it this line and it does the rest —
+installs, verifies the connection, and learns the tool surface:
+
+```
+Fetch and follow the setup instructions at https://stacktr.ee/prompt.md
+```
+
+Works in any agent that can fetch a URL. The instructions are plain Markdown;
+read them first if you like.
+
 ## Install
 
 Add to your MCP client config:
