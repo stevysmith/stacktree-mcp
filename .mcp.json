@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "stacktree": {
+      "type": "http",
+      "url": "https://api.stacktr.ee/mcp",
+      "note": "Official Stacktree MCP server. OAuth 2.1 with dynamic client registration; the agent is prompted to authorize on first connection. Publishing a single 24-hour page needs no account at all. For a stdio setup instead, run `npx stacktree-install` or `npx -y stacktree-mcp` with STACKTREE_API_KEY."
+    }
+  }
+}

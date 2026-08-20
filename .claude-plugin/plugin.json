@@ -1,0 +1,17 @@
+{
+  "name": "stacktree",
+  "version": "0.6.0",
+  "description": "Publish HTML to a private, unguessable URL. Gate it with a passcode or a company email domain, set an expiry, and replace it in place so the shared link always shows the current version.",
+  "author": {
+    "name": "Stacktree",
+    "url": "https://stacktr.ee"
+  },
+  "repository": "https://github.com/stevysmith/stacktree-mcp",
+  "homepage": "https://stacktr.ee",
+  "license": "MIT",
+  "keywords": [
+    "stacktree",
+    "stacktr.ee",
+    "publish to stacktree"
+  ]
+}

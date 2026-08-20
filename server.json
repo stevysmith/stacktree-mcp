@@ -3,7 +3,7 @@
   "name": "ee.stacktr/publish",
   "title": "Stacktree",
   "description": "Stacktree: publish agent-made HTML to a private, gated URL, filed under a client space.",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "repository": {
     "url": "https://github.com/stevysmith/stacktree-mcp",
     "source": "github"
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "stacktree-mcp",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "transport": {
         "type": "stdio"
       }
