@@ -32,21 +32,54 @@ Add to your MCP client config:
 
 Generate an API key at <https://app.stacktr.ee>.
 
-## Tools
+## You may not need this package
+
+This is the **stdio** bridge, for clients that cannot speak streamable HTTP.
+If yours can, connect straight to the hosted server at
+`https://api.stacktr.ee/mcp` — it exposes the same 25 tools and takes the same
+key:
+
+```bash
+curl -sS -X POST https://api.stacktr.ee/mcp \
+  -H "Authorization: Bearer $STACKTREE_API_KEY" \
+  -H 'accept: application/json, text/event-stream' \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+No browser and no OAuth flow is required to do that: an `stk_live_` key is a
+valid credential on the MCP endpoint, exactly as it is on the REST API. OAuth
+2.1 with Dynamic Client Registration is also accepted, for connectors acting on
+behalf of a signed-in human; session cookies are refused. Send one credential.
+
+No key, and no human to ask? `POST https://api.stacktr.ee/provision` buys one
+over x402. A human nearby but no browser? `POST
+https://api.stacktr.ee/api-keys/device-code`, print the returned
+`verification_url_complete` for them, and poll
+`/api-keys/device-code/poll` until it returns the key (RFC 8628).
+
+## Tools (25)
 
 | Tool               | What it does                                                                |
 | ------------------ | --------------------------------------------------------------------------- |
 | `publish_html`     | Publish HTML; returns `{ url, id, expires_at, ... }`. Pass `client` to file it under a client space. |
 | `update_site`      | Replace the HTML of an existing site in place; URL is preserved.            |
 | `get_site`         | Read a site's current HTML source — edit it, then `update_site`.            |
-| `set_password`     | Add or clear a passcode gate. Paid plans only.                              |
+| `set_password`     | Add or clear a passcode gate. Works on every plan.                          |
 | `set_expiry`       | Set hours-from-now expiry, or `null` for never. Clamped to the plan ceiling.|
 | `set_email_gate`   | Restrict viewers to an email domain (one-time magic-link verify). Paid plans only. |
 | `set_agentation`   | Toggle the on-page Agentation feedback toolbar.                             |
 | `list_sites`       | List sites owned by this API key. Paged (`has_more` + cursor); filter with `client`. |
-| `delete_site`      | Hard delete a site.                                                         |
+| `delete_site`      | Take a page down. The link dies at once; the content is kept 30 days, then destroyed. |
+| `restore_site`     | Put a deleted or expired page back at the same URL, inside those 30 days.   |
+| `claim_site`       | Adopt a page published without an account, using its `claim_token`. Same URL; a claim counts as a publish. |
+| `get_content`      | Read a page back as `html` (exact stored source, editable) or `text` (stripped, cheap to read). |
+| `get_me`           | This key's account, plan, counts and enforced `limits`. Read limits from here, never from a description. |
 | `link_wallet`      | Link your wallet so pages you publish are owned by your account.            |
 | `list_feedback`    | Read viewer annotations left via the Agentation toolbar; unresolved first.  |
+| `create_share_link`| Mint a link addressed to one person — every open through it is attributed to that name. |
+| `list_share_links` | The links on a page, with attributed opens and when each was last opened.   |
+| `revoke_share_link`| Kill one link; the page and every other link keep working.                  |
 | `resolve_feedback` | Mark a feedback item addressed, with an optional note.                      |
 | `set_client`       | File a page under a client space by name or slug (auto-created), or `null` to detach. |
 | `list_client_spaces` | The client spaces on the account: page counts, bound hostname, portal state. |
@@ -76,16 +109,18 @@ Every site gets an unguessable `https://stacktr.ee/p/{token}/` URL. Pass `public
 
 ## What the free plan gives you
 
-A key on the free plan publishes **3 pages in total**, and each one **expires 7 days** after it is published. The count is lifetime, not concurrent: deleting a page or letting it expire does not give the slot back. `expires_in_hours: "never"` is clamped to the 7-day ceiling rather than refused, so always read `expires_at` off the response.
+A key on the free plan publishes **3 pages in total**, and each one **expires 7 days** after it is published. The count is lifetime, not concurrent: deleting a page or letting it expire does not give the slot back.
 
-Passcodes (`set_password`), email gates (`set_email_gate`) and viewer numbers are on paid plans. Hitting a ceiling returns HTTP 402 with a stable `plan_*` code in `error`:
+`expires_in_hours: "never"` is **refused** on a plan that caps page lifetime, not quietly shortened: `409 expiry_clamped`, nothing published, and the body carries the date the page would have got. Pass `accept_clamp: true` to take the ceiling, or tell the user the plan cannot make the link permanent. A *number* longer than the ceiling is shortened rather than refused, with `expiry_clamped: true` in the response. Either way, read `expires_at_iso` off the response and quote that, never the value you asked for.
+
+Passcodes (`set_password`) work on every plan, free included. Email gates (`set_email_gate`) and viewer numbers are on paid plans. Hitting a ceiling returns HTTP 402 with a stable `plan_*` code in `error`:
 
 | Code | Means |
 | --- | --- |
 | `plan_lifetime_limit_exceeded` | All 3 free pages used. Deleting one does not help. |
 | `plan_site_limit_exceeded` | Active-page cap reached. |
-| `plan_password_not_available` | Passcodes are not on this plan. |
+| `plan_password_not_available` | Passcodes are not on this plan (they are on Free; a plan can still be without them). |
 | `plan_viewer_gate_not_available` | Email gates are not on this plan. |
 | `plan_domain_not_available` | Custom domains are not on this plan. |
 
-`GET /me` returns the calling key's own `limits` object. Read caps from there rather than hard-coding them. Current plans and prices: <https://stacktr.ee/pricing.md>.
+`GET /me` — or the `get_me` tool — returns the calling key's own `limits` object. Read caps from there rather than hard-coding them. Current plans and prices: <https://stacktr.ee/pricing.md>.
