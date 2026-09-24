@@ -14,3 +14,7 @@ node_modules/
 # Local env (none expected — server has no secrets, but be safe)
 .env
 .env.*
+
+# Claude Desktop extension build (scripts/build-mcpb.mjs)
+.mcpb-build/
+*.mcpb

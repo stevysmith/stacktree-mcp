@@ -6,6 +6,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
+import { ANNOTATIONS } from './annotations.gen.js';
 
 const API_URL = process.env.STACKTREE_API_URL || 'https://api.stacktr.ee';
 const API_KEY = process.env.STACKTREE_API_KEY;
@@ -96,6 +97,12 @@ const SetAgentation = z.object({
   enabled: z.boolean(),
 });
 
+const SetClientFeedback = z.object({
+  id_or_slug: z.string(),
+  comments: z.boolean().optional(),
+  reactions: z.boolean().optional(),
+});
+
 const SetEmailGate = z.object({
   id_or_slug: z.string(),
   domain: z.string().nullable().describe('Email domain (e.g. "openai.com"); strict-equal, no subdomain match. null clears the gate. Setting one needs a paid plan; clearing one always works.'),
@@ -141,6 +148,23 @@ const DeleteClientSpace = z.object({
 
 const GetSite = z.object({
   id_or_slug: z.string().describe('Site id, slug, or unlisted token.'),
+});
+
+const GetPasscode = z.object({
+  id_or_slug: z.string().describe('Site id, slug, unlisted token, or the pasted page URL.'),
+});
+
+// Page version history (worker migration 0058). Same reason the restore_site
+// mirror exists: this package is the copy installed agents actually run, so a
+// verb missing here is a verb the agent cannot reach, and the one it reaches
+// for instead is publish_html, which mints a second page at a new URL.
+const ListVersions = z.object({
+  id_or_slug: z.string().describe('Site id, slug, unlisted token, or the pasted page URL.'),
+});
+
+const RestoreVersion = z.object({
+  id_or_slug: z.string().describe('Site id, slug, unlisted token, or the pasted page URL.'),
+  version_id: z.string().describe('An id from list_versions.'),
 });
 
 const LinkWallet = z.object({
@@ -257,6 +281,16 @@ async function setAgentation(args: z.infer<typeof SetAgentation>) {
   });
 }
 
+async function setClientFeedback(args: z.infer<typeof SetClientFeedback>) {
+  return apiCall('PATCH', `/sites/${encodeURIComponent(args.id_or_slug)}`, {
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      ...(args.comments !== undefined ? { comments: args.comments } : {}),
+      ...(args.reactions !== undefined ? { reactions: args.reactions } : {}),
+    }),
+  });
+}
+
 async function setEmailGate(args: z.infer<typeof SetEmailGate>) {
   return apiCall('PATCH', `/sites/${encodeURIComponent(args.id_or_slug)}`, {
     headers: { 'content-type': 'application/json' },
@@ -326,6 +360,20 @@ async function getSite(args: z.infer<typeof GetSite>): Promise<string> {
     throw new Error(`stacktree GET /sites/${args.id_or_slug}/content → ${res.status}: ${text || res.statusText}`);
   }
   return text;
+}
+
+// GET /sites/{id}/passcode, owner-only: the passcode as the owner set it, for
+// sending to a client again. Older passcodes (before the readable copy existed)
+// answer 404 not_retrievable; the fix is set_password with a new one.
+async function getPasscode(args: z.infer<typeof GetPasscode>): Promise<unknown> {
+  const res = await fetch(API_URL + `/sites/${encodeURIComponent(args.id_or_slug)}/passcode`, {
+    headers: { authorization: `Bearer ${API_KEY}` },
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`stacktree GET /sites/${args.id_or_slug}/passcode → ${res.status}: ${text || res.statusText}`);
+  }
+  return JSON.parse(text);
 }
 
 // Same owner-scoped route as get_site — GET /sites/{id}/content — so the
@@ -430,6 +478,19 @@ async function listFeedback(args: z.infer<typeof ListFeedback>) {
   return apiCall('GET', `/sites/${encodeURIComponent(args.id_or_slug)}/feedback`);
 }
 
+// GET /sites/{id}/versions and its restore. Owner-only on the worker side; this
+// forwards the key and nothing else, exactly like every other call here.
+async function listVersions(args: z.infer<typeof ListVersions>) {
+  return apiCall('GET', `/sites/${encodeURIComponent(args.id_or_slug)}/versions`);
+}
+
+async function restoreVersion(args: z.infer<typeof RestoreVersion>) {
+  return apiCall(
+    'POST',
+    `/sites/${encodeURIComponent(args.id_or_slug)}/versions/${encodeURIComponent(args.version_id)}/restore`,
+  );
+}
+
 async function resolveFeedback(args: z.infer<typeof ResolveFeedback>) {
   return apiCall('POST', `/feedback/${encodeURIComponent(args.feedback_id)}/resolve`, {
     headers: { 'content-type': 'application/json' },
@@ -466,6 +527,7 @@ const TOOLS = [
   // list is worse than either one alone.
   { name: 'set_expiry',       description: 'Set hours-from-now expiry, or null for never. A NUMBER above the plan ceiling is shortened to it (free: 168 hours) and the response says so. null on a plan that caps page lifetime is REFUSED — 409 expiry_clamped, nothing changed — rather than quietly becoming 7 days, so a shortened page can never be reported as permanent: either resend with accept_clamp: true to take the ceiling, or tell the user the plan cannot make this link permanent. Quote expires_at_iso from the response, never the value you asked for.', schema: SetExpiry,      impl: setExpiry },
   { name: 'set_agentation',   description: 'Toggle the on-page Agentation feedback toolbar. When on, viewer annotations are collected — read them with list_feedback, fix the page with update_site, then resolve_feedback.', schema: SetAgentation,  impl: setAgentation },
+  { name: 'set_client_feedback', description: 'Switch how the people you send a page to can answer on it, with no account. comments: they select words, or click an image, video or section, and leave a comment only the owner sees (read them with list_feedback, fix with update_site, then resolve_feedback with a note the client sees). reactions: one-tap emoji. Pass either or both; omitted ones are left as they are. Prefer this to set_agentation, the older developer toolbar.', schema: SetClientFeedback, impl: setClientFeedback },
   { name: 'set_email_gate',   description: 'Restrict viewer access to a specific email domain (strict-equal match). Viewers must verify via a one-time magic link. Mutually exclusive with set_password. Pass domain: null to clear. Email gates are a paid feature: on a free key, setting one returns 402 plan_viewer_gate_not_available.', schema: SetEmailGate,   impl: setEmailGate },
   { name: 'list_sites',       description: 'List sites owned by this API key. Viewer numbers are plan-gated: when metrics_locked is true, view_count, unique_viewers and last_viewed_at are null and only the boolean opened is meaningful. Report "someone opened this" in that case; do not guess or infer a count. Each site carries its client space (or null); filter with the client argument. Pages that expired or were deleted stay in this list rather than disappearing: check deleted_at before handing anyone a url, because a row with deleted_at set is a dead link, and restore_site puts it back until restorable_until passes. delete_reason says which it was: "expired", "owner", or "abuse", and an abuse takedown is never restorable, so do not offer to put one back. Those three fields are absent rather than null against a worker that predates them, so treat a missing deleted_at as live. Paged: when has_more is true, call again passing next_before and next_before_id as before and before_id, and repeat until has_more is false.', schema: ListSites,      impl: listSites },
   { name: 'list_client_spaces', description: 'List the client spaces on this account: slug, name, page_count, last activity, hostname (the space’s own address, e.g. acme.theiragency.com, when one is connected) and portal_enabled (whether the space serves a generated client portal at that address). Spaces group published pages per client ("file this under Acme"). publish_html auto-creates spaces, so an empty list just means nothing has been filed yet — publish with a client to start one. Connecting an address and enabling the portal are done in the dashboard (DNS is involved).', schema: ListClientSpaces, impl: listClientSpaces },
@@ -476,6 +538,9 @@ const TOOLS = [
   { name: 'delete_client_space', description: 'Delete a client space. The pages filed under it are NOT deleted: they detach to floating pages and keep working on their existing URLs, so delivered work stays reachable. The space itself goes, and with it the generated portal page and any address connected to it, which stop resolving. A space-level viewer gate goes with the space too: a page that was protected only by the space passcode or email domain, and carries no gate of its own, becomes reachable by anyone holding its link. Warn the user, and set_password on the pages that have to stay private before deleting. When the user means a client is simply finished, prefer update_client_space with archived: true — archiving keeps the portal and the address live, frees the plan slot, and can be undone.', schema: DeleteClientSpace, impl: deleteClientSpace },
   { name: 'get_site',         description: 'Read the current HTML source of a site you own, so you can edit it and update_site in place. Returns the exact stored index.html (not rendered or text-stripped), preserving CSS and inline charts.', schema: GetSite,        impl: getSite },
   { name: 'link_wallet',      description: 'Link your wallet to a Stacktree account so the pages you publish are owned there — and adopt the ones you already published. Get a LINK-XXXX code from your human (generated at stacktr.ee/wallets). First call with just { code } to get the exact message to sign; sign it with your wallet (personal_sign / EIP-191); then call again with { code, wallet, signature }.', schema: LinkWallet, impl: linkWallet },
+  { name: 'get_passcode',     description: 'Show the passcode set on a page this account owns, so it can be sent to the client again. Works for passcodes set since 13 September 2026 (kept as an encrypted copy beside the hash the gate checks). An older one answers not_retrievable: the page still asks for it, and the fix is set_password with a new one, then send that.', schema: GetPasscode,    impl: getPasscode },
+  { name: 'list_versions',    description: 'List earlier versions of a page this key owns, newest first. Every update replaces a page in place, and the content it replaced is kept here: one snapshot per update, taken the moment before the new content landed. Call this whenever an update turned out wrong, or the user asks what a page said before, or asks for last month\'s copy back, then restore_version with the id. Do NOT publish_html to recover an earlier version: that mints a second page at a different URL. Each version carries source (how the update that produced it arrived) and partial. SINGLE FILE ONLY: on a page with other files only index.html is kept, and partial is 1 to say so; an end-to-end encrypted page is not snapshotted at all. Retention is per plan, the last 5 versions on free and 50 on paid, so an old version can age out. An empty list is not an error and does not mean the page is broken: it means the page has not been updated yet, or its versions have aged past the cap.', schema: ListVersions,   impl: listVersions },
+  { name: 'restore_version',  description: 'Put an earlier version of a page back at the same URL, after a bad update. Get the version id from list_versions first. Same link, same id, same read history, so nothing needs re-sending. This is NOT restore_site: restore_site brings back a page that was DELETED or expired, this rolls a live page\'s content back to what it said before. The content that is live right now is snapshotted first, as a new version, so this is itself undoable and new_version in the response is the id that undoes it. Report that. SINGLE FILE ONLY: on a page with other files this puts index.html back and leaves the rest as they are, and the response carries partial: true saying so. A 404 version_not_found means that id is not a version of this page (it may have aged past the plan\'s retention cap); a 409 site_deleted means the page itself has stopped serving, so call restore_site first and then this. Nothing is changed in either case.', schema: RestoreVersion, impl: restoreVersion },
   { name: 'list_feedback',    description: 'Read viewer feedback left on a site via the Agentation toolbar. Each item has a comment plus the annotated element, selected text, intent and severity; unresolved items first. The loop: list_feedback → get_site/update_site → resolve_feedback.', schema: ListFeedback, impl: listFeedback },
   { name: 'resolve_feedback', description: 'Mark a feedback item as addressed after fixing the page. Optionally include a note describing the change.', schema: ResolveFeedback, impl: resolveFeedback },
 ] as const;
@@ -490,6 +555,7 @@ server.setRequestHandler(ListToolsRequestSchema, () => ({
     name: t.name,
     description: t.description,
     inputSchema: zodToJsonSchema(t.schema),
+    ...(ANNOTATIONS[t.name] ? { annotations: ANNOTATIONS[t.name] } : {}),
   })),
 }));
 

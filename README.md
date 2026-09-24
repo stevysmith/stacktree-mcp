@@ -36,7 +36,7 @@ Generate an API key at <https://app.stacktr.ee>.
 
 This is the **stdio** bridge, for clients that cannot speak streamable HTTP.
 If yours can, connect straight to the hosted server at
-`https://api.stacktr.ee/mcp` — it exposes the same 25 tools and takes the same
+`https://api.stacktr.ee/mcp` — it exposes the same 28 tools and takes the same
 key:
 
 ```bash
@@ -58,7 +58,7 @@ https://api.stacktr.ee/api-keys/device-code`, print the returned
 `verification_url_complete` for them, and poll
 `/api-keys/device-code/poll` until it returns the key (RFC 8628).
 
-## Tools (25)
+## Tools
 
 | Tool               | What it does                                                                |
 | ------------------ | --------------------------------------------------------------------------- |
@@ -68,7 +68,8 @@ https://api.stacktr.ee/api-keys/device-code`, print the returned
 | `set_password`     | Add or clear a passcode gate. Works on every plan.                          |
 | `set_expiry`       | Set hours-from-now expiry, or `null` for never. Clamped to the plan ceiling.|
 | `set_email_gate`   | Restrict viewers to an email domain (one-time magic-link verify). Paid plans only. |
-| `set_agentation`   | Toggle the on-page Agentation feedback toolbar.                             |
+| `set_client_feedback` | Let the people you send a page to comment on it (words, images, video) and react, with no account. |
+| `set_agentation`   | Older developer mark-up toolbar. Prefer `set_client_feedback`.              |
 | `list_sites`       | List sites owned by this API key. Paged (`has_more` + cursor); filter with `client`. |
 | `delete_site`      | Take a page down. The link dies at once; the content is kept 30 days, then destroyed. |
 | `restore_site`     | Put a deleted or expired page back at the same URL, inside those 30 days.   |
@@ -76,7 +77,7 @@ https://api.stacktr.ee/api-keys/device-code`, print the returned
 | `get_content`      | Read a page back as `html` (exact stored source, editable) or `text` (stripped, cheap to read). |
 | `get_me`           | This key's account, plan, counts and enforced `limits`. Read limits from here, never from a description. |
 | `link_wallet`      | Link your wallet so pages you publish are owned by your account.            |
-| `list_feedback`    | Read viewer annotations left via the Agentation toolbar; unresolved first.  |
+| `list_feedback`    | Read client comments, unresolved first, each with what it is on and whether it is still on the page. |
 | `create_share_link`| Mint a link addressed to one person — every open through it is attributed to that name. |
 | `list_share_links` | The links on a page, with attributed opens and when each was last opened.   |
 | `revoke_share_link`| Kill one link; the page and every other link keep working.                  |
@@ -87,6 +88,9 @@ https://api.stacktr.ee/api-keys/device-code`, print the returned
 | `update_client_space` | Rename, archive, or set the space-wide viewer gate every page under it inherits. |
 | `delete_client_space` | Remove a space. Its pages detach and keep their URLs.                  |
 | `get_design_guide` | The house design guide — read it before generating or restyling a page.     |
+| `get_passcode`     | Show the passcode on a page you own, to send it to the client again (passcodes set since 13 September 2026). |
+| `list_versions`    | Earlier versions of a page, newest first: one snapshot per update.          |
+| `restore_version`  | Put an earlier version back at the same URL after a bad update.             |
 
 ## Linking a wallet
 
@@ -99,7 +103,17 @@ If your agent pays for publishes from its own wallet (x402 / MPP), link that wal
 
 ## Reading feedback
 
-Turn on the on-page toolbar with `set_agentation` and viewers can annotate the page; their comments are stored with the site. `list_feedback` returns them, unresolved first (comment, annotated element, selected text, intent, severity). Fix the page in place with `update_site` (same URL), then `resolve_feedback` to mark each item addressed, with an optional note.
+Turn comments on with `set_client_feedback` and whoever you sent the link to can select words, or click an image, video or section, and leave a comment only the owner sees. `list_feedback` returns them, unresolved first, each with a one-line `target` and `on_page` (still in the page, or gone since an edit). Fix the page in place with `update_site` (same URL): its response lists which open comments no longer match the new version. Then `resolve_feedback` each answered one with a short note, which the client sees next to their comment.
+
+## Privacy Policy
+
+Full policy: <https://stacktr.ee/privacy>. In short:
+
+- **What is collected.** This server sends what you ask it to publish (the HTML and files) and your tool calls to `https://api.stacktr.ee`, authenticated with your Stacktree API key. It collects nothing from your machine beyond that and keeps no local data.
+- **How it is used and stored.** Published files are stored in Cloudflare R2 and page metadata (URL, visibility, expiry, password hash, view counts) in Cloudflare D1, to serve your pages. Optional features you switch on per page, such as the design pass, Ask this page and page video, send that page's text to the AI services named in the policy, under terms that exclude training on it.
+- **Sharing.** Stacktree does not sell personal data. It shares data only with the sub-processors needed to run the service, listed in the policy (for example Cloudflare, Clerk for sign-in, Stripe for billing).
+- **Retention.** A page lives until it expires or you delete it; after that the content is kept 30 days so it can be restored, then destroyed. Serving logs are kept 30 days with IP addresses hashed.
+- **Contact.** privacy@stacktr.ee
 
 ## Privacy defaults
 

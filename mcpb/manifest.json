@@ -1,0 +1,67 @@
+{
+  "manifest_version": "0.2",
+  "name": "stacktree",
+  "display_name": "Stacktree",
+  "version": "0.0.0",
+  "description": "Publish HTML to a private link that opens in any browser, with no account for the viewer.",
+  "long_description": "Stacktree turns the reports, proposals, dashboards and pages Claude builds into private links you can send to a client. Links are unguessable by default, can carry a passcode or be limited to a company email domain, and update in place so a link you already sent never goes stale. Clients can comment on the page itself (on words, images or video) with no account, and your agent can read those comments, fix the page and resolve them. Needs a Stacktree API key from https://app.stacktr.ee/settings.",
+  "author": {
+    "name": "Steve Smith (Stacktree)",
+    "email": "support@stacktr.ee",
+    "url": "https://github.com/stevysmith"
+  },
+  "homepage": "https://stacktr.ee",
+  "documentation": "https://stacktr.ee/developers",
+  "support": "https://stacktr.ee/contact",
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server/index.js"
+      ],
+      "env": {
+        "STACKTREE_API_KEY": "${user_config.api_key}"
+      }
+    }
+  },
+  "tools": [],
+  "user_config": {
+    "api_key": {
+      "type": "string",
+      "title": "Stacktree API key",
+      "description": "Create one at https://app.stacktr.ee/settings. It starts with stk_.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "keywords": [
+    "html",
+    "publish",
+    "hosting",
+    "share",
+    "client",
+    "report",
+    "private link"
+  ],
+  "license": "MIT",
+  "privacy_policies": [
+    "https://stacktr.ee/privacy"
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stevysmith/stacktree-mcp"
+  }
+}
