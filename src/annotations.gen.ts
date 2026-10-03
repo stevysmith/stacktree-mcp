@@ -7,56 +7,56 @@ export const ANNOTATIONS: Record<string, Record<string, unknown>> = {
     "readOnlyHint": false,
     "destructiveHint": false,
     "idempotentHint": false,
-    "openWorldHint": false
+    "openWorldHint": true
   },
   "update_site": {
     "title": "Update a site in place",
     "readOnlyHint": false,
     "destructiveHint": true,
     "idempotentHint": true,
-    "openWorldHint": false
+    "openWorldHint": true
   },
   "delete_site": {
     "title": "Take a page down (restorable for 30 days)",
     "readOnlyHint": false,
     "destructiveHint": true,
     "idempotentHint": true,
-    "openWorldHint": false
+    "openWorldHint": true
   },
   "restore_site": {
     "title": "Put a deleted page back at the same URL",
     "readOnlyHint": false,
     "destructiveHint": false,
     "idempotentHint": false,
-    "openWorldHint": false
+    "openWorldHint": true
   },
   "claim_site": {
     "title": "Adopt an anonymous page into this account",
     "readOnlyHint": false,
-    "destructiveHint": false,
+    "destructiveHint": true,
     "idempotentHint": true,
     "openWorldHint": false
   },
   "set_password": {
     "title": "Set or clear a password gate",
     "readOnlyHint": false,
-    "destructiveHint": false,
+    "destructiveHint": true,
     "idempotentHint": true,
-    "openWorldHint": false
+    "openWorldHint": true
   },
   "set_expiry": {
     "title": "Set or clear link expiry",
     "readOnlyHint": false,
-    "destructiveHint": false,
+    "destructiveHint": true,
     "idempotentHint": true,
-    "openWorldHint": false
+    "openWorldHint": true
   },
   "create_share_link": {
     "title": "Mint a share link for one recipient",
     "readOnlyHint": false,
     "destructiveHint": false,
     "idempotentHint": false,
-    "openWorldHint": false
+    "openWorldHint": true
   },
   "list_share_links": {
     "title": "List share links and their opens",
@@ -70,28 +70,28 @@ export const ANNOTATIONS: Record<string, Record<string, unknown>> = {
     "readOnlyHint": false,
     "destructiveHint": true,
     "idempotentHint": true,
-    "openWorldHint": false
+    "openWorldHint": true
   },
   "set_agentation": {
     "title": "Toggle the feedback toolbar",
     "readOnlyHint": false,
     "destructiveHint": false,
     "idempotentHint": true,
-    "openWorldHint": false
+    "openWorldHint": true
   },
   "set_client_feedback": {
     "title": "Let clients comment and react",
     "readOnlyHint": false,
     "destructiveHint": false,
     "idempotentHint": true,
-    "openWorldHint": false
+    "openWorldHint": true
   },
   "set_email_gate": {
-    "title": "Restrict viewers by email domain",
+    "title": "Restrict viewers by email domain or address",
     "readOnlyHint": false,
-    "destructiveHint": false,
+    "destructiveHint": true,
     "idempotentHint": true,
-    "openWorldHint": false
+    "openWorldHint": true
   },
   "list_sites": {
     "title": "List your sites",
@@ -119,28 +119,28 @@ export const ANNOTATIONS: Record<string, Record<string, unknown>> = {
     "readOnlyHint": false,
     "destructiveHint": false,
     "idempotentHint": true,
-    "openWorldHint": false
+    "openWorldHint": true
   },
   "create_client_space": {
     "title": "Create a client space",
     "readOnlyHint": false,
     "destructiveHint": false,
     "idempotentHint": true,
-    "openWorldHint": false
+    "openWorldHint": true
   },
   "update_client_space": {
     "title": "Rename, archive, or gate a client space",
     "readOnlyHint": false,
-    "destructiveHint": false,
+    "destructiveHint": true,
     "idempotentHint": true,
-    "openWorldHint": false
+    "openWorldHint": true
   },
   "delete_client_space": {
     "title": "Delete a client space (its pages survive)",
     "readOnlyHint": false,
     "destructiveHint": true,
     "idempotentHint": true,
-    "openWorldHint": false
+    "openWorldHint": true
   },
   "get_design_guide": {
     "title": "Get the design guide",
@@ -182,7 +182,7 @@ export const ANNOTATIONS: Record<string, Record<string, unknown>> = {
     "readOnlyHint": false,
     "destructiveHint": true,
     "idempotentHint": true,
-    "openWorldHint": false
+    "openWorldHint": true
   },
   "list_feedback": {
     "title": "Read viewer feedback",
@@ -196,7 +196,7 @@ export const ANNOTATIONS: Record<string, Record<string, unknown>> = {
     "readOnlyHint": false,
     "destructiveHint": false,
     "idempotentHint": true,
-    "openWorldHint": false
+    "openWorldHint": true
   },
   "link_wallet": {
     "title": "Link a wallet to your account",
