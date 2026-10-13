@@ -36,7 +36,7 @@ Generate an API key at <https://app.stacktr.ee>.
 
 This is the **stdio** bridge, for clients that cannot speak streamable HTTP.
 If yours can, connect straight to the hosted server at
-`https://api.stacktr.ee/mcp` — it exposes the same 28 tools and takes the same
+`https://api.stacktr.ee/mcp`, which exposes the same 42 tools and takes the same
 key:
 
 ```bash
@@ -91,6 +91,19 @@ https://api.stacktr.ee/api-keys/device-code`, print the returned
 | `get_passcode`     | Show the passcode on a page you own, to send it to the client again (passcodes set since 13 September 2026). |
 | `list_versions`    | Earlier versions of a page, newest first: one snapshot per update.          |
 | `restore_version`  | Put an earlier version back at the same URL after a bad update.             |
+| `whos_it_for`      | Record who a page is for and get their own link. Sends nothing.             |
+| `unopened_pages`   | Pages, and named people, that have not opened what was sent an hour on.     |
+| `get_revision_brief` | Everything that came back on a page, as the brief for its next version.   |
+| `publish_revision` | Replace a page in place and resolve the comments it answers, in one step.   |
+| `resolve_comments` | Resolve several comments at once, each with a note the reviewer sees.       |
+| `request_approval` | Ask named people to approve a page; one private link each.                  |
+| `get_approval_status` | Who has approved the version that is live now, section by section.      |
+| `list_responses`   | What readers sent through the forms marked on a page.                       |
+| `resolve_addressed_notes` | Close the reviewers' notes an update answered, with one line each.   |
+| `open_html_file`   | Opens an .html file in ChatGPT desktop's file viewer. Here it only echoes the file back. |
+| `stacktree_pages`  | Your 25 newest pages: ChatGPT's pages panel. Same data as `list_sites`.      |
+| `publish_card_status` | Refreshes the publish card in ChatGPT and Claude. Here it returns the page's detail. |
+| `publish_card_open` | The publish card's Open button: a 15-minute owner preview link to a page. |
 
 ## Linking a wallet
 

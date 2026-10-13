@@ -11,8 +11,23 @@ import { ANNOTATIONS } from './annotations.gen.js';
 const API_URL = process.env.STACKTREE_API_URL || 'https://api.stacktr.ee';
 const API_KEY = process.env.STACKTREE_API_KEY;
 
+// What a person or agent sees when the server is started by hand. An MCP
+// client never passes --help, so this only ever reaches a terminal.
+const SETUP = [
+  'Get a key: npx stacktree-install signs you in and configures your agents,',
+  'or create one at https://app.stacktr.ee/api-keys.',
+  'No key: the hosted server at https://api.stacktr.ee/mcp signs in with OAuth,',
+  'and POST https://api.stacktr.ee/sites publishes with no account (a 24-hour page).',
+  'Docs: https://stacktr.ee/auth.md',
+].join('\n');
+
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+  console.error(`stacktree-mcp: the Stacktree MCP server over stdio.\n\nUsage: STACKTREE_API_KEY=stk_live_... npx -y stacktree-mcp\n\n${SETUP}`);
+  process.exit(0);
+}
+
 if (!API_KEY) {
-  console.error('STACKTREE_API_KEY env var is required');
+  console.error(`STACKTREE_API_KEY env var is required.\n\n${SETUP}`);
   process.exit(1);
 }
 
@@ -90,11 +105,6 @@ const SetExpiry = z.object({
   id_or_slug: z.string(),
   expires_in_hours: z.number().nullable().describe('null = never, on a plan that allows it. A number over the plan ceiling is clamped to it (free: 168 hours) and the response says so. null on a capped plan is REFUSED (409 expiry_clamped, nothing changed) rather than quietly becoming 7 days; pass accept_clamp to take the ceiling. Quote expires_at_iso from the response, not what you asked for.'),
   accept_clamp: z.boolean().optional().describe('Accept the plan ceiling instead of being refused when asking for a page that never expires.'),
-});
-
-const SetAgentation = z.object({
-  id_or_slug: z.string(),
-  enabled: z.boolean(),
 });
 
 const SetClientFeedback = z.object({
@@ -197,6 +207,89 @@ const ResolveFeedback = z.object({
   note: z.string().optional().describe('What was changed to address it (optional).'),
 });
 
+// The nine tools the hosted /mcp gained for ChatGPT plugin 1.2.0, after being
+// proven on /mcp-labs. Each calls the same REST routes the hosted server does,
+// with this key, so the two surfaces stay one tool surface.
+
+// "Who's it for?" (worker migration 0084).
+const WhosItFor = z.object({
+  id_or_slug: z.string().describe('Site id, slug, unlisted token, or the page’s link.'),
+  name: z.string().describe('The person it is for, e.g. "Megan Hanning". Up to 80 characters.'),
+});
+
+const UnopenedPages = z.object({
+  id_or_slug: z.string().optional().describe('Only this page: its id or slug.'),
+});
+
+// The revision loop.
+const GetRevisionBrief = z.object({
+  id_or_slug: z.string().describe('Site id, slug, unlisted token, or the page link.'),
+});
+
+const Resolution = z.object({
+  feedback_id: z.string().describe('The comment id from get_revision_brief or list_feedback.'),
+  note: z.string().optional().describe('One plain sentence for the person who left the comment, saying what changed. For an approval, a short thank-you.'),
+});
+
+const PublishRevision = z.object({
+  id_or_slug: z.string().describe('Site id, slug, unlisted token, or the page link.'),
+  content: z.string().describe('The full new HTML of the page.'),
+  resolutions: z.array(Resolution).max(50).optional().describe('The comments this resolves, each with a note for the person who left it.'),
+  message: z.string().optional().describe('One short message back to the reviewer about the revision as a whole. Shown once, above their resolved comments.'),
+  pii_check: z.enum(['off', 'warn', 'block']).optional().describe('PII pre-flight scan mode, as on update_site. MCP default: block.'),
+});
+
+const ResolveComments = z.object({
+  id_or_slug: z.string().describe('Site id, slug, unlisted token, or the page link.'),
+  resolutions: z.array(Resolution).min(1).max(50).describe('The comments this resolves, each with a note for the person who left it.'),
+  message: z.string().optional().describe('One short message back to the reviewer about the revision as a whole. Shown once, above their resolved comments.'),
+});
+
+// Sign-off (worker migration 0087).
+const RequestApproval = z.object({
+  content: z.string().optional().describe('HTML to publish as a new page. Omit when id_or_slug names a page already published.'),
+  id_or_slug: z.string().optional().describe('A page already published on this account, by id, slug or URL. Use instead of content.'),
+  approvers: z.array(z.string()).min(1).max(10).describe('Who to ask. A name ("Priya Shah"), or a name and address ("Priya Shah <priya@acme.com>"). One link is made per person.'),
+  note: z.string().optional().describe('One or two lines shown to approvers above the buttons: what to check, and by when.'),
+  password: z.string().optional().describe('Optional passcode for a new page. Approver links open without it.'),
+  expires_in_hours: z.union([z.number(), z.literal('never')]).optional().describe('Lifetime of a new page in hours, or "never", as publish_html takes it.'),
+  client: z.string().optional().describe('File a new page under this client.'),
+  idempotency_key: z.string().optional().describe('Send the same key on a retry to get the first result back instead of a second page and a second set of links.'),
+});
+
+const GetApprovalStatus = z.object({
+  approval_id: z.string().describe('From request_approval.'),
+});
+
+const ListResponses = z.object({
+  id_or_slug: z.string().describe('The page, by id, slug or URL.'),
+  form: z.string().optional().describe('Only this form, by its data-stacktree-form name.'),
+  limit: z.number().optional().describe('At most this many, up to 500. Default 200.'),
+});
+
+const ResolveAddressedNotes = z.object({
+  id_or_slug: z.string().describe('The page, by id, slug or URL.'),
+  note: z.string().optional().describe('What changed, in one line, for the reviewers.'),
+  ids: z.array(z.string()).optional().describe('Only these note ids, as GET /sites/{id}/addressed lists them.'),
+});
+
+// The ChatGPT plugin extensions the hosted /mcp also serves since ChatGPT
+// plugin 1.2.0: a file viewer, a pages panel and a publish card, each an MCP
+// App that ChatGPT (and Claude, for the card) renders. A stdio client renders
+// none of them, so these answer with the plain data the apps start from.
+const OpenHtmlFile = z.object({
+  file: z.object({
+    name: z.string().describe('Name of the opened file, with its extension.'),
+    resourceUri: z.string().describe('The opaque URI ChatGPT gives for the file the user opened. Not a file path.'),
+  }),
+});
+
+const StacktreePages = z.object({});
+
+const PublishCardRef = z.object({
+  id_or_slug: z.string().describe('The site id from the publish result.'),
+});
+
 // ----- tool implementations ------------------------------------------------
 
 async function publishHtml(args: z.infer<typeof PublishHtml>) {
@@ -274,12 +367,6 @@ async function setExpiry(args: z.infer<typeof SetExpiry>) {
   });
 }
 
-async function setAgentation(args: z.infer<typeof SetAgentation>) {
-  return apiCall('PATCH', `/sites/${encodeURIComponent(args.id_or_slug)}`, {
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ agentation: args.enabled }),
-  });
-}
 
 async function setClientFeedback(args: z.infer<typeof SetClientFeedback>) {
   return apiCall('PATCH', `/sites/${encodeURIComponent(args.id_or_slug)}`, {
@@ -498,6 +585,132 @@ async function resolveFeedback(args: z.infer<typeof ResolveFeedback>) {
   });
 }
 
+// POST /sites/{id}/recipients records the person and returns their ?to= link.
+// It sends nothing; `source: 'agent'` is how the hosted tool marks it too.
+async function whosItFor(args: z.infer<typeof WhosItFor>) {
+  return apiCall('POST', `/sites/${encodeURIComponent(args.id_or_slug)}/recipients`, {
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: args.name, source: 'agent' }),
+  });
+}
+
+async function unopenedPages(args: z.infer<typeof UnopenedPages>) {
+  const site = args.id_or_slug?.trim();
+  return apiCall('GET', `/me/unopened${site ? `?site=${encodeURIComponent(site)}` : ''}`);
+}
+
+async function getRevisionBrief(args: z.infer<typeof GetRevisionBrief>) {
+  return apiCall('GET', `/sites/${encodeURIComponent(args.id_or_slug)}/revision-brief`);
+}
+
+async function resolveComments(args: z.infer<typeof ResolveComments>) {
+  return apiCall('POST', `/sites/${encodeURIComponent(args.id_or_slug)}/feedback/resolve`, {
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ resolutions: args.resolutions, ...(args.message ? { message: args.message } : {}) }),
+  });
+}
+
+// The update first, through update_site itself, so a refused update (PII block,
+// deleted page, managed portal) throws here and resolves nothing: telling a
+// client "done" about a version that never went live is the one outcome this
+// must not produce. Same order as the hosted tool.
+async function publishRevision(args: z.infer<typeof PublishRevision>) {
+  const updated = await updateSite({
+    id_or_slug: args.id_or_slug,
+    content: args.content,
+    filename: 'index.html',
+    ...(args.pii_check ? { pii_check: args.pii_check } : {}),
+  }) as Record<string, unknown>;
+  // The update's own comments block was counted before anything was resolved.
+  const { comments: _stale, ...published } = updated ?? {};
+  if (!args.resolutions?.length) return { ...published, resolved: [] };
+  try {
+    const resolved = await apiCall('POST', `/sites/${encodeURIComponent(args.id_or_slug)}/feedback/resolve`, {
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ resolutions: args.resolutions, ...(args.message ? { message: args.message } : {}) }),
+    }) as Record<string, unknown>;
+    return { ...published, ...resolved };
+  } catch (e) {
+    return { ...published, resolved: [], resolve_error: (e as Error).message, next: 'The page was updated, but resolving the comments failed. Retry with resolve_comments.' };
+  }
+}
+
+// Publish (when given content) and then POST /sites/{id}/approvals, which turns
+// sign-off on and mints one named link per approver. The approvals call carries
+// its own idempotency key, derived from the caller's, as the hosted tool does.
+async function requestApproval(args: z.infer<typeof RequestApproval>) {
+  const given = args.id_or_slug?.trim() ?? '';
+  if (!args.content && !given) throw new Error('request_approval needs content (HTML to publish) or id_or_slug (a page already published). Nothing was published.');
+  if (args.content && given) throw new Error('Pass content or id_or_slug, not both. Nothing was published.');
+  let ref = given;
+  let published: Record<string, unknown> | null = null;
+  if (args.content) {
+    published = await publishHtml({
+      content: args.content,
+      filename: 'index.html',
+      ...(args.password !== undefined ? { password: args.password } : {}),
+      ...(args.expires_in_hours !== undefined ? { expires_in_hours: args.expires_in_hours } : {}),
+      ...(args.client !== undefined ? { client: args.client } : {}),
+      ...(args.idempotency_key !== undefined ? { idempotency_key: args.idempotency_key } : {}),
+    }) as Record<string, unknown>;
+    ref = typeof published?.id === 'string' ? published.id : '';
+    if (!ref) throw new Error('The page did not come back with an id. Nothing else was done.');
+  }
+  const idem = args.idempotency_key?.trim();
+  try {
+    const status = await apiCall('POST', `/sites/${encodeURIComponent(ref)}/approvals`, {
+      headers: { 'content-type': 'application/json', ...(idem ? { 'idempotency-key': `approval:${idem}` } : {}) },
+      body: JSON.stringify({ approvers: args.approvers, note: args.note ?? null }),
+    }) as Record<string, unknown>;
+    return published
+      ? { ...status, page: { id: published.id, url: published.url, expires_at_iso: published.expires_at_iso ?? null } }
+      : status;
+  } catch (e) {
+    if (!published) throw e;
+    throw new Error(`${(e as Error).message}\nThe page WAS published (id ${ref}) but no approval request was made. Call request_approval again with id_or_slug "${ref}"; do not publish it a second time.`);
+  }
+}
+
+async function getApprovalStatus(args: z.infer<typeof GetApprovalStatus>) {
+  return apiCall('GET', `/approvals/${encodeURIComponent(args.approval_id)}`);
+}
+
+async function listResponses(args: z.infer<typeof ListResponses>) {
+  const params = new URLSearchParams();
+  if (args.form) params.set('form', args.form);
+  if (args.limit !== undefined) params.set('limit', String(args.limit));
+  const q = params.toString();
+  return apiCall('GET', `/sites/${encodeURIComponent(args.id_or_slug)}/responses${q ? `?${q}` : ''}`);
+}
+
+async function resolveAddressedNotes(args: z.infer<typeof ResolveAddressedNotes>) {
+  return apiCall('POST', `/sites/${encodeURIComponent(args.id_or_slug)}/addressed/resolve`, {
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ...(args.note !== undefined ? { note: args.note } : {}), ...(args.ids ? { ids: args.ids } : {}) }),
+  });
+}
+
+// The hosted tool echoes the file too: the viewer app reads it from the host.
+async function openHtmlFile(args: z.infer<typeof OpenHtmlFile>) {
+  return { file: args.file };
+}
+
+// The same 25 newest pages the hosted panel lists.
+async function stacktreePages() {
+  return listSites({ limit: 25 });
+}
+
+// The hosted tool builds the card from this same owner-scoped read (plus the
+// named opens); with no card to draw here, the page's own detail is the answer.
+async function publishCardStatus(args: z.infer<typeof PublishCardRef>) {
+  return apiCall('GET', `/sites/${encodeURIComponent(args.id_or_slug)}`);
+}
+
+// The owner preview link: signed, 15 minutes, not counted as a visit.
+async function publishCardOpen(args: z.infer<typeof PublishCardRef>) {
+  return apiCall('GET', `/sites/${encodeURIComponent(args.id_or_slug)}/preview-url`);
+}
+
 // ----- MCP server wiring ---------------------------------------------------
 
 const TOOLS = [
@@ -526,8 +739,7 @@ const TOOLS = [
   // An agent reads the description; two contradictory sentences in one tool
   // list is worse than either one alone.
   { name: 'set_expiry',       description: 'Set hours-from-now expiry, or null for never. A NUMBER above the plan ceiling is shortened to it (free: 168 hours) and the response says so. null on a plan that caps page lifetime is REFUSED — 409 expiry_clamped, nothing changed — rather than quietly becoming 7 days, so a shortened page can never be reported as permanent: either resend with accept_clamp: true to take the ceiling, or tell the user the plan cannot make this link permanent. Quote expires_at_iso from the response, never the value you asked for.', schema: SetExpiry,      impl: setExpiry },
-  { name: 'set_agentation',   description: 'Toggle the on-page Agentation feedback toolbar. When on, viewer annotations are collected — read them with list_feedback, fix the page with update_site, then resolve_feedback.', schema: SetAgentation,  impl: setAgentation },
-  { name: 'set_client_feedback', description: 'Switch how the people you send a page to can answer on it, with no account. comments: they select words, or click an image, video or section, and leave a comment only the owner sees (read them with list_feedback, fix with update_site, then resolve_feedback with a note the client sees). reactions: one-tap emoji. Pass either or both; omitted ones are left as they are. Prefer this to set_agentation, the older developer toolbar.', schema: SetClientFeedback, impl: setClientFeedback },
+  { name: 'set_client_feedback', description: 'Switch how the people you send a page to can answer on it, with no account. comments: they select words, or click an image, video or section, and leave a comment only the owner sees (read them with list_feedback, fix with update_site, then resolve_feedback with a note the client sees). reactions: one-tap emoji. Pass either or both; omitted ones are left as they are.', schema: SetClientFeedback, impl: setClientFeedback },
   { name: 'set_email_gate',   description: 'Restrict viewer access to a specific email domain (strict-equal match). Viewers must verify via a one-time magic link. Mutually exclusive with set_password. Pass domain: null to clear. Email gates are a paid feature: on a free key, setting one returns 402 plan_viewer_gate_not_available.', schema: SetEmailGate,   impl: setEmailGate },
   { name: 'list_sites',       description: 'List sites owned by this API key. Viewer numbers are plan-gated: when metrics_locked is true, view_count, unique_viewers and last_viewed_at are null and only the boolean opened is meaningful. Report "someone opened this" in that case; do not guess or infer a count. Each site carries its client space (or null); filter with the client argument. Pages that expired or were deleted stay in this list rather than disappearing: check deleted_at before handing anyone a url, because a row with deleted_at set is a dead link, and restore_site puts it back until restorable_until passes. delete_reason says which it was: "expired", "owner", or "abuse", and an abuse takedown is never restorable, so do not offer to put one back. Those three fields are absent rather than null against a worker that predates them, so treat a missing deleted_at as live. Paged: when has_more is true, call again passing next_before and next_before_id as before and before_id, and repeat until has_more is false.', schema: ListSites,      impl: listSites },
   { name: 'list_client_spaces', description: 'List the client spaces on this account: slug, name, page_count, last activity, hostname (the space’s own address, e.g. acme.theiragency.com, when one is connected) and portal_enabled (whether the space serves a generated client portal at that address). Spaces group published pages per client ("file this under Acme"). publish_html auto-creates spaces, so an empty list just means nothing has been filed yet — publish with a client to start one. Connecting an address and enabling the portal are done in the dashboard (DNS is involved).', schema: ListClientSpaces, impl: listClientSpaces },
@@ -543,6 +755,21 @@ const TOOLS = [
   { name: 'restore_version',  description: 'Put an earlier version of a page back at the same URL, after a bad update. Get the version id from list_versions first. Same link, same id, same read history, so nothing needs re-sending. This is NOT restore_site: restore_site brings back a page that was DELETED or expired, this rolls a live page\'s content back to what it said before. The content that is live right now is snapshotted first, as a new version, so this is itself undoable and new_version in the response is the id that undoes it. Report that. SINGLE FILE ONLY: on a page with other files this puts index.html back and leaves the rest as they are, and the response carries partial: true saying so. A 404 version_not_found means that id is not a version of this page (it may have aged past the plan\'s retention cap); a 409 site_deleted means the page itself has stopped serving, so call restore_site first and then this. Nothing is changed in either case.', schema: RestoreVersion, impl: restoreVersion },
   { name: 'list_feedback',    description: 'Read viewer feedback left on a site via the Agentation toolbar. Each item has a comment plus the annotated element, selected text, intent and severity; unresolved items first. The loop: list_feedback → get_site/update_site → resolve_feedback.', schema: ListFeedback, impl: listFeedback },
   { name: 'resolve_feedback', description: 'Mark a feedback item as addressed after fixing the page. Optionally include a note describing the change.', schema: ResolveFeedback, impl: resolveFeedback },
+  // The nine the hosted /mcp gained for ChatGPT plugin 1.2.0 (apps/worker/src/mcp.ts).
+  { name: 'whos_it_for',      description: 'Record who a published page is for, by name, and get back that person’s own link to hand over. Ask your user who the page is for before you hand a link over, then call this once per person. Every open through the link comes back with their name, and if they have not opened it an hour after it went up, the owner’s dashboard says so. It records only: nothing is sent to anyone. Unlike create_share_link, the link keeps the page’s passcode or email gate in front of it. To file the page under the person’s company, use set_client.', schema: WhosItFor, impl: whosItFor },
+  { name: 'unopened_pages',   description: 'The pages, and the named people, that have not opened what was sent to them an hour after it went up, newest first. Most pages are opened within the hour they are sent, so one that is still quiet has usually not gone out: hand the person their link again (each item carries it), or ask your user who an unnamed page is for and call whos_it_for. Read-only.', schema: UnopenedPages, impl: unopenedPages },
+  { name: 'get_revision_brief', description: 'Everything that came back on one page, as the brief for its next version: the reviewer\'s change requests, their questions grouped by theme, their approvals, the notes the owner left on their own page as a fix list, each with the exact passage or image it is pinned to and whether it still matches the page; then reactions, questions readers asked the page, what is already resolved, and suggested edits. Call it when the user asks what the client thought or wants to revise a page with feedback. Then get_site, edit, and publish_revision to publish the new version and resolve what it answers in one step.', schema: GetRevisionBrief, impl: getRevisionBrief },
+  { name: 'publish_revision', description: 'Publishes the new version of a page that has feedback and resolves the comments it answers, in one step. The HTML is replaced in place, exactly as update_site does (same link, so everyone holding it sees the new version; the old one is kept in list_versions). Then each listed comment is resolved with its note, and one message back to the reviewer is left with them. The reviewer sees the notes and the message next to their comments the next time they open the page. Use it instead of update_site when the new version answers feedback from get_revision_brief. If the update is refused, nothing is resolved.', schema: PublishRevision, impl: publishRevision },
+  { name: 'resolve_comments', description: 'Resolves several comments on one page in one call, each with a short note, plus one optional message back to the reviewer. For when nothing needs publishing: approvals, or comments an earlier update already answered. The person who left each comment sees the note next to it on the page, so write it to them. Ids that are not open on this page are skipped and reported back.', schema: ResolveComments, impl: resolveComments },
+  { name: 'request_approval', description: 'Get a named person\'s yes on a page. Publishes the HTML (or uses a page already published) with a sign-off panel, and makes one private link per approver that carries their name. Each approver opens their link, reads the page and chooses Approve or Request changes, for the whole page or section by section, with an optional note. Returns the links to send and an approval_id for get_approval_status. The result is a timestamped record of who approved which version, not a legal e-signature.', schema: RequestApproval, impl: requestApproval },
+  { name: 'get_approval_status', description: 'Where an approval request stands. state is "approved" only when every approver has approved the version that is live now (the whole page, or every section); "changes_requested" when anyone has asked for a change; otherwise "pending". Per approver: status, their note, when, and section by section progress. An answer about an earlier version does not count: if you update the page, approvals of the parts that changed lapse.', schema: GetApprovalStatus, impl: getApprovalStatus },
+  { name: 'list_responses',   description: 'What readers sent through the forms on a page. A form in published HTML marked <form data-stacktree-form="name"> posts to the page itself; only the fields the form declares are kept. Newest first.', schema: ListResponses, impl: listResponses },
+  { name: 'resolve_addressed_notes', description: 'After update_site: resolve the open notes the new version appears to answer (comments whose words are gone, sections that were asked to change and have been edited), with one line each reviewer sees next to their own note. Only notes the update actually touched are resolved. Leave ids out to resolve all of them.', schema: ResolveAddressedNotes, impl: resolveAddressedNotes },
+  // ChatGPT plugin extensions (see OpenHtmlFile above).
+  { name: 'open_html_file',   description: 'The Stacktree viewer for an .html file the user opens in ChatGPT desktop: preview it, publish it to a private link, add a passcode, send it to a named client, and keep the page in sync as the file changes. ChatGPT calls this itself when the user opens the file. A file path does not work here: to publish a file you can read, call publish_html with its contents.', schema: OpenHtmlFile, impl: openHtmlFile },
+  { name: 'stacktree_pages',  description: 'Lists the pages you have published on Stacktree, newest first, with their links, viewers and expiry.', schema: StacktreePages, impl: stacktreePages },
+  { name: 'publish_card_status', description: 'Used by the Stacktree publish card in the chat to refresh itself: the page’s link, whether and by whom it has been opened, its passcode, expiry and client. Read-only. An agent answering the user should use list_sites or list_share_links instead.', schema: PublishCardRef, impl: publishCardStatus },
+  { name: 'publish_card_open', description: 'Used by the Stacktree publish card in the chat: a short-lived owner preview link for one page, which opens it without counting as a visit and without asking for its passcode. Read-only. Not a link to send anyone: it stops working after 15 minutes.', schema: PublishCardRef, impl: publishCardOpen },
 ] as const;
 
 const server = new Server(
@@ -590,6 +817,10 @@ function zodToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
   if (schema instanceof z.ZodNullable) {
     const inner = zodToJsonSchema(schema.unwrap()) as { type?: string };
     return { ...inner, type: [inner.type, 'null'].filter(Boolean) };
+  }
+  // Lists (approvers, resolutions, note ids), with their item shape.
+  if (schema instanceof z.ZodArray) {
+    return { type: 'array', items: zodToJsonSchema(schema.element), ...(schema.description ? { description: schema.description } : {}) };
   }
   if (schema instanceof z.ZodEnum)   return { type: 'string', enum: schema.options };
   if (schema instanceof z.ZodLiteral) return { const: schema.value };

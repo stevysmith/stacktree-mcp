@@ -38,7 +38,7 @@ export const ANNOTATIONS: Record<string, Record<string, unknown>> = {
     "openWorldHint": false
   },
   "set_password": {
-    "title": "Set or clear a password gate",
+    "title": "Set or clear a page passcode",
     "readOnlyHint": false,
     "destructiveHint": true,
     "idempotentHint": true,
@@ -69,13 +69,6 @@ export const ANNOTATIONS: Record<string, Record<string, unknown>> = {
     "title": "Revoke one share link",
     "readOnlyHint": false,
     "destructiveHint": true,
-    "idempotentHint": true,
-    "openWorldHint": true
-  },
-  "set_agentation": {
-    "title": "Toggle the feedback toolbar",
-    "readOnlyHint": false,
-    "destructiveHint": false,
     "idempotentHint": true,
     "openWorldHint": true
   },
@@ -203,6 +196,97 @@ export const ANNOTATIONS: Record<string, Record<string, unknown>> = {
     "readOnlyHint": false,
     "destructiveHint": false,
     "idempotentHint": false,
+    "openWorldHint": false
+  },
+  "whos_it_for": {
+    "title": "Say who a page is for",
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+  },
+  "unopened_pages": {
+    "title": "Pages not opened yet",
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+  },
+  "get_revision_brief": {
+    "title": "Client feedback brief",
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+  },
+  "publish_revision": {
+    "title": "Publish a revision and resolve comments",
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "idempotentHint": false,
+    "openWorldHint": true
+  },
+  "resolve_comments": {
+    "title": "Resolve comments",
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+  },
+  "request_approval": {
+    "title": "Ask people to approve a page",
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": true
+  },
+  "get_approval_status": {
+    "title": "Who has approved",
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+  },
+  "list_responses": {
+    "title": "Form responses",
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+  },
+  "resolve_addressed_notes": {
+    "title": "Close the notes an update answered",
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "idempotentHint": true,
+    "openWorldHint": true
+  },
+  "open_html_file": {
+    "title": "Open in Stacktree",
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+  },
+  "stacktree_pages": {
+    "title": "Your Stacktree pages",
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+  },
+  "publish_card_status": {
+    "title": "Refresh a publish card",
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+  },
+  "publish_card_open": {
+    "title": "Open a page as its owner",
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
     "openWorldHint": false
   }
 };
